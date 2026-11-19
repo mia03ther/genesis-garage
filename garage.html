@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="GENESIS GARAGE. 改一辆废铁车，挑战上一版纪录。" />
+    <meta name="description" content="GENESIS GARAGE. 接手擂主车，改一个零件，跑赢它。" />
     <title>GENESIS GARAGE · 废铁工坊</title>
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="garage/style.css" />
@@ -20,7 +20,17 @@
           <p class="kicker">SCRAPYARD SPRINT</p>
           <h1 id="title">废铁<span>工坊</span></h1>
         </div>
-        <p>拆个零件，改装上场。<br />试着跑赢上一版。</p>
+        <p>接手擂主车。<br />改一个零件，跑赢它。</p>
+      </section>
+
+      <section id="arena-board" class="arena-board" hidden aria-label="现场擂台大屏">
+        <div class="arena-callout">
+          <p class="kicker">LIVE CHAMPION</p>
+          <h2>擂主 <span id="wall-champion">V0</span></h2>
+          <p>扫码接车 · 改一个零件 · 跑赢它</p>
+        </div>
+        <div id="challenge-tree" class="challenge-tree" aria-label="车辆挑战谱系"></div>
+        <div><div id="wall-qr" class="wall-qr" aria-hidden="true"></div><p class="scan-label">SCAN TO CHALLENGE</p></div>
       </section>
 
       <div class="game">
@@ -28,12 +38,12 @@
           <canvas id="scene" width="400" height="225" role="img" aria-label="霓虹工坊里待改装的越野车"></canvas>
           <div class="visual-top">
             <span id="scene-label">PIT · 改装台</span>
-            <span id="ghost-label">原装参考</span>
+            <span id="ghost-label">初代擂主</span>
           </div>
           <ol id="sectors" class="sectors" aria-label="赛道路段"></ol>
         </section>
 
-        <section class="panel" aria-label="改装和试跑">
+        <section class="panel" aria-label="改装和擂台赛">
           <div class="panel-title">
             <h2 id="panel-title">改装台</h2>
             <span id="budget" class="budget"></span>
@@ -47,41 +57,42 @@
           <div id="result" hidden>
             <p id="verdict" class="verdict"></p>
             <div id="result-time" class="timer"></div>
-            <ol id="splits" class="splits" aria-label="与参考车的分段时间差"></ol>
+            <ol id="splits" class="splits" aria-label="与擂主车的分段时间差"></ol>
           </div>
           <p id="status" class="status" role="status"></p>
           <div class="actions">
-            <button id="run" class="primary" type="button">开始试跑</button>
+            <button id="run" class="primary" type="button">挑战擂主</button>
             <button id="boost" class="primary" type="button" hidden>冲刺 <kbd>Space</kbd></button>
             <button id="retry" class="primary" type="button" hidden>再改一轮</button>
-            <button id="share" class="secondary" type="button" hidden>分享这版</button>
-            <button id="invite" class="text-button" type="button">邀请挑战</button>
+            <button id="share" class="secondary" type="button" hidden>交给下一位</button>
+            <button id="invite" class="text-button" type="button">扫码挑战</button>
           </div>
         </section>
       </div>
 
       <details class="chain">
         <summary>Monad Testnet</summary>
-        <p>打开指定的工坊合约后，可以用测试钱包保存成绩和父版本。</p>
+        <p>测试网合约复算圈速；跑赢当前擂主的新车自动接任。</p>
         <form id="registry-form">
           <label for="registry">工坊合约地址</label>
           <div class="inline">
             <input id="registry" type="text" required maxlength="42" pattern="0x[0-9a-fA-F]{40}" placeholder="0x…" spellcheck="false" autocomplete="off" />
           </div>
-          <label for="version-input">查找版本</label>
+          <label for="version-input">车辆编号</label>
           <div class="inline">
             <input id="version-input" type="text" inputmode="numeric" maxlength="78" pattern="0|[1-9][0-9]*" value="0" required />
-            <button class="secondary" type="submit">打开工坊</button>
+            <button class="secondary" type="submit">打开车辆</button>
           </div>
         </form>
         <div class="inline chain-actions">
-          <button id="publish" class="secondary" type="button" disabled>保存试跑版本</button>
+          <button id="publish" class="secondary" type="button" disabled>提交挑战结果</button>
           <a id="transaction" hidden target="_blank" rel="noopener noreferrer">查看交易</a>
-          <a id="published-version" hidden>打开已保存的版本</a>
-          <a id="parent-version" hidden>查看父版本</a>
+          <a id="published-version" hidden>打开这辆车</a>
+          <a id="champion-version" hidden>打开当前擂主</a>
+          <a id="parent-version" hidden>查看它改自哪辆车</a>
         </div>
         <dl id="version-details" class="version-details" hidden>
-          <div><dt>参考版本</dt><dd id="version-number"></dd></div>
+          <div><dt>车辆</dt><dd id="version-number"></dd></div>
           <div><dt>圈速</dt><dd id="version-score"></dd></div>
           <div><dt>发布者</dt><dd id="version-author"></dd></div>
         </dl>
@@ -92,7 +103,7 @@
 
     <dialog id="share-dialog" aria-labelledby="share-title">
       <form method="dialog"><button class="close text-button" type="submit" aria-label="关闭">×</button></form>
-      <h2 id="share-title">接手这辆车</h2>
+      <h2 id="share-title">扫码接车，挑战擂主</h2>
       <div id="qr" class="qr" aria-hidden="true"></div>
       <label class="sr-only" for="share-link">挑战链接</label>
       <input id="share-link" type="url" readonly />

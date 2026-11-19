@@ -39,7 +39,7 @@ test("rain tires trade straight-line pace for corner grip; boost timing matters"
 
 const anvil = spawnSync("anvil", ["--version"], { windowsHide: true });
 
-test("Anvil validates all JS scores and two clients can publish and read a remix", {
+test("Anvil validates scores and promotes only a winning child of the current champion", {
   skip: anvil.status !== 0 ? "Anvil is not available on PATH" : false,
   timeout: 25000,
 }, async (t) => {
@@ -81,7 +81,12 @@ test("Anvil validates all JS scores and two clients can publish and read a remix
   const [a, b] = await alice("eth_accounts", []);
   assert.notEqual(a, b);
   const deployment = await alice("eth_sendTransaction", [{ from: a, data: compiled.bytecode.object }]);
-  const receipt = await alice("eth_getTransactionReceipt", [deployment]);
+  let receipt = null;
+  for (let attempt = 0; attempt < 20 && !receipt; attempt++) {
+    receipt = await alice("eth_getTransactionReceipt", [deployment]);
+    if (!receipt) await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  assert.ok(receipt, "deployment receipt was not mined");
   assert.equal(receipt.status, "0x1");
   const advanceFinality = () => alice("anvil_mine", ["0x3"]);
   await advanceFinality();
@@ -90,6 +95,7 @@ test("Anvil validates all JS scores and two clients can publish and read a remix
   await sender.check();
   await receiver.check();
   assert.deepEqual((await receiver.read(0)).build, STOCK);
+  assert.equal(await receiver.champion(), 0n);
   await assert.rejects(new GarageRegistry(bob, receipt.contractAddress, "0x279f", artifact).check(), /网络不匹配/);
   await assert.rejects(new GarageRegistry(bob, a, "0x7a69", artifact).check(), /不匹配/);
   for (let motor = 0; motor < 3; motor++) for (let tires = 0; tires < 3; tires++) {
@@ -109,6 +115,9 @@ test("Anvil validates all JS scores and two clients can publish and read a remix
   await advanceFinality();
   const published = await sender.confirmed(hash, first);
   assert.equal(published.version, 1n);
+  assert.equal(published.beatParent, true);
+  assert.equal(published.promoted, true);
+  assert.equal(await receiver.champion(), 1n);
   assert.deepEqual(await receiver.read(1), published);
   const next = { from: b, parent: published.version, build: { ...published.build, motor: 1, boost: 3 } };
   const childHash = await bob("eth_sendTransaction", [receiver.transaction(next.from, next.parent, next.build)]);
@@ -118,10 +127,16 @@ test("Anvil validates all JS scores and two clients can publish and read a remix
   assert.equal(child.parent, 1n);
   assert.equal(child.author, b);
   assert.ok(child.timeMs < published.timeMs);
+  assert.equal(child.promoted, true);
+  assert.equal(await sender.champion(), 2n);
   assert.deepEqual(await sender.read(2), child);
   const fork = { from: b, parent: 0n, build: { motor: 2, tires: 0, boost: 1 } };
   const forkHash = await bob("eth_sendTransaction", [receiver.transaction(fork.from, fork.parent, fork.build)]);
   await advanceFinality();
-  assert.equal((await receiver.confirmed(forkHash, fork)).parent, 0n);
+  const staleFork = await receiver.confirmed(forkHash, fork);
+  assert.equal(staleFork.parent, 0n);
+  assert.equal(staleFork.beatParent, true);
+  assert.equal(staleFork.promoted, false);
+  assert.equal(await receiver.champion(), 2n);
   assert.deepEqual(await sender.read(2), child);
 });
