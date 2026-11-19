@@ -237,11 +237,13 @@ function render(force = false) {
     lastRevision = snapshot.revision;
   }
   $("mode").textContent =
-    mode === "practice"
-      ? "LOCAL PRACTICE · OFFCHAIN"
-      : mode === "local"
-        ? "ANVIL LOCAL · 现场演练"
-        : "MONAD TESTNET · 现场房间";
+    mode === "practice" && query.has("room") && !gateway
+      ? "CONNECTING TO ROOM…"
+      : mode === "practice"
+        ? "LOCAL PRACTICE · OFFCHAIN"
+        : mode === "local"
+          ? "ANVIL LOCAL · 现场演练"
+          : "MONAD TESTNET · 现场房间";
   $("people-label").textContent = mode === "practice" ? "角色" : "队员";
   $("people").textContent = snapshot.participants;
   $("power").textContent = `${snapshot.used}/${snapshot.supply}`;
@@ -261,7 +263,7 @@ function render(force = false) {
     ].map(([done, text]) => {
       const p = document.createElement("div");
       p.className = done ? "goal-done" : "";
-      p.textContent = (done ? "● " : "○ ") + text;
+      p.textContent = (done ? "✓ " : "○ ") + text;
       return p;
     }),
   );
@@ -284,7 +286,7 @@ function render(force = false) {
       ? "Local practice uses three simulated roles. They are not online players."
       : !snapshot.block
         ? "Reading confirmed room state. Stand by."
-        : `${mode === "local" ? "ANVIL LOCAL" : "MONAD TESTNET"} · CONFIRMED REV ${snapshot.revision} · BLOCK ${parseInt(snapshot.block, 16)} · BUILD CREDITS ARE NON-TRANSFERABLE AND ARE NOT TOKENS.`;
+        : `网关校验通过 · ${mode === "local" ? "ANVIL LOCAL" : "MONAD TESTNET"} · CONFIRMED REV ${snapshot.revision} · BLOCK ${parseInt(snapshot.block, 16)} · BUILD CREDITS ARE NON-TRANSFERABLE AND ARE NOT TOKENS.`;
   $("role").hidden = mode !== "practice";
   $("role").textContent = `切换角色 ${role}`;
   $("tour").hidden = mode !== "practice" || wall;
