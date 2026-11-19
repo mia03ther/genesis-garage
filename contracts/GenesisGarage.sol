@@ -10,15 +10,21 @@ contract GenesisGarage {
         uint8 tires;
         uint8 boost;
         uint32 timeMs;
+        bool beatParent;
+        bool promoted;
     }
 
     uint256 public nextVersion = 1;
+    uint256 public championVersion;
     mapping(uint256 => Build) private builds;
-    event BuildPublished(uint256 indexed version, uint256 indexed parent, address indexed author);
+    event BuildPublished(
+        uint256 indexed version, uint256 indexed parent, address indexed author, bool beatParent, bool promoted
+    );
+    event ChampionChanged(uint256 indexed previousChampion, uint256 indexed newChampion);
 
     function read(uint256 version) external view returns (Build memory) {
         require(version < nextVersion, "missing version");
-        if (version == 0) return Build(0, address(0), 0, 0, 1, lapTime(0, 0, 1));
+        if (version == 0) return Build(0, address(0), 0, 0, 1, lapTime(0, 0, 1), false, true);
         return builds[version];
     }
 
@@ -28,9 +34,17 @@ contract GenesisGarage {
         Build memory previous = builds[parent];
         uint8 previousBoost = parent == 0 ? 1 : previous.boost;
         require(motor != previous.motor || tires != previous.tires || boost != previousBoost, "unchanged run");
+        uint32 parentTime = parent == 0 ? lapTime(0, 0, 1) : previous.timeMs;
+        bool beatParent = timeMs < parentTime;
+        bool promoted = parent == championVersion && beatParent;
         version = nextVersion++;
-        builds[version] = Build(parent, msg.sender, motor, tires, boost, timeMs);
-        emit BuildPublished(version, parent, msg.sender);
+        builds[version] = Build(parent, msg.sender, motor, tires, boost, timeMs, beatParent, promoted);
+        emit BuildPublished(version, parent, msg.sender, beatParent, promoted);
+        if (promoted) {
+            uint256 previousChampion = championVersion;
+            championVersion = version;
+            emit ChampionChanged(previousChampion, version);
+        }
     }
 
     function lapTime(uint8 motor, uint8 tires, uint8 boost) public pure returns (uint32) {

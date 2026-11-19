@@ -34,6 +34,19 @@ p, h1, h2, ol { margin: 0; }
 .intro h1 { font-size: clamp(2.9rem, 6.8vw, 5.25rem); line-height: 1.02; font-weight: 950; letter-spacing: -.075em; margin-block-start: 8px; }
 .intro h1 span { color: var(--violet); }
 .intro > p { color: var(--muted); text-align: right; padding-block-end: 3px; }
+.arena-board { display: grid; grid-template-columns: minmax(220px, .8fr) minmax(300px, 1.6fr) 150px; gap: 18px; align-items: center; border: 1px solid #74569c; background: linear-gradient(135deg, #29173d, #171020 60%); padding: 18px; margin-bottom: 15px; }
+.arena-callout h2 { font-size: clamp(2rem, 4vw, 3.8rem); line-height: 1; margin-block: 8px; }
+.arena-callout h2 span { color: var(--lime); }
+.arena-callout > p:last-child, .scan-label { color: var(--muted); }
+.challenge-tree { display: flex; flex-wrap: wrap; align-content: center; gap: 8px; min-height: 100px; }
+.tree-car { border: 1px solid var(--line); background: #171020; padding: 8px 10px; font: 700 .875rem/1.25 ui-monospace, monospace; }
+.tree-car small { display: block; color: var(--muted); font-weight: 500; }
+.tree-car.won { border-color: #8069b0; }
+.tree-car.champion { color: #171412; background: var(--lime); border-color: var(--lime); box-shadow: 0 0 24px #daff8c55; }
+.tree-car.champion small { color: #4f5139; }
+.wall-qr { width: 132px; background: white; margin-inline: auto; }
+.wall-qr svg { display: block; width: 100%; height: auto; }
+.scan-label { text-align: center; font: 700 .7rem/1.2 ui-monospace, monospace; margin-top: 5px; letter-spacing: .08em; }
 .game { display: grid; grid-template-columns: minmax(0, 1.73fr) minmax(320px, 1fr); align-items: start; gap: 14px; }
 .visual { border: 1px solid var(--line); position: relative; overflow: hidden; background: #181024; }
 canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; }
@@ -97,6 +110,9 @@ dialog .primary { width: 100%; margin-top: 10px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 @media (max-width: 760px) {
+  .arena-board { grid-template-columns: 1fr 108px; }
+  .challenge-tree { grid-column: 1 / -1; order: 3; min-height: 0; }
+  .wall-qr { width: 100px; }
   .game { grid-template-columns: minmax(0, 1fr); gap: 9px; }
   .topbar { min-height: 52px; }
   .intro { min-height: 0; padding-block: 14px 16px; }

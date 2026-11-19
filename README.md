@@ -1,25 +1,34 @@
 # Project GENESIS
 
-## GENESIS GARAGE · 废铁工坊
+## GENESIS GARAGE · Monad 现场擂台
 
-Take a friend's buggy, swap a part, and try to beat their lap. The garage has
-two part slots, a five-point budget, and one boost per race. A shared challenge
-opens the exact build as a ghost car for the next player.
+**接手擂主车，改一个零件，跑赢它。**
+
+GENESIS GARAGE is a phone-first live challenge for Monad Blitz. The projector
+shows the current champion, its challenge history, and one QR. A player scans,
+changes the motor or tires, chooses where to spend one boost, and races the
+champion's ghost. A faster direct challenger becomes the new champion; a loss
+or an old fork remains in history without replacing it.
 
 ```powershell
 py -3.12 -m http.server 8022 --bind 127.0.0.1 --directory frontend
 ```
 
-Open `http://127.0.0.1:8022/garage.html`. Choose a part, start a run, then tap
+Open `http://127.0.0.1:8022/garage.html`. Choose a part, challenge the champion, then tap
 the boost button or press Space on the section where you want to use it. Share
 the result to make it someone else's starting car. For a phone on a different
 device, use a reachable deployment URL or serve `frontend` on a trusted LAN and
 open the laptop's LAN address before generating the QR.
 
+Use `http://127.0.0.1:8022/garage.html?wall=1` on the projector. The wall view
+adds the current champion, recent challenge tree, and a phone entry QR. With a
+configured Testnet registry, the QR always points at the current onchain champion.
+
 The optional Monad Testnet registry recomputes the simulated lap from the
-submitted parts and boost section. Each published version records the submitting
-address and parent version. The browser accepts the expected registry bytecode,
-reads finalized records, and opens older builds as playable ghosts. See the
+submitted parts and boost section. It decides whether the car beat its parent
+and whether it may replace the current champion. Every numbered car records its
+driver and the car it modified, creating a public challenge tree. The browser
+pins the expected registry bytecode and reads finalized records. See the
 [Garage demo and verification guide](docs/GARAGE_DEMO.md).
 
 ## GENESIS LIVE · CITY ZERO
@@ -147,14 +156,17 @@ node frontend/community/e2e.mjs
 Recorded results for this relaunch:
 
 - Python: **638 passed**
-- Browser-domain Node tests: **21 passed**
-- Solidity: **13 passed**
-- Strict mypy: **26 source files clean**
+- Browser-domain Node tests: **29 passed**
+- Solidity: **15 passed**
+- Strict mypy: **27 source files clean**
 - Three-session HTTP → gateway → Anvil experiment: passed, including shared state, ownership rejection, idempotency, power loss/recovery, timed completion, host-only reset, and stale-round rejection
 
 Evidence: [machine-readable E2E report](docs/examples/relaunch-e2e.report.json) · [executed checks](docs/validation/RELAUNCH_CHECKS.md) · [deployment guide](DEPLOY.md)
 
-Automated browser rendering failed before interaction because the available computer-use runtime could not initialize its kernel assets. Therefore this repository does not claim a completed visual, Mobile Safari, or public Monad rehearsal. Those checks remain mandatory before the event.
+GENESIS GARAGE was visually rehearsed in a desktop projector layout and a
+390 × 844 phone viewport, including a complete winning run and QR handoff. This
+is not a physical Mobile Safari or public Monad rehearsal; both remain mandatory
+before the event.
 
 ## Scope and provenance
 

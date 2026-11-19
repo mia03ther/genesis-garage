@@ -7,6 +7,7 @@ import { makeScene } from "./scene.js";
 const $ = (id) => document.getElementById(id);
 const scene = makeScene($("scene"));
 const query = new URLSearchParams(location.search);
+const wallMode = query.get("wall") === "1";
 const linkBuild = query.get("build");
 const sharedBuild = query.get("v") === "1" ? parseBuild(linkBuild) : null;
 const parts = [
@@ -57,6 +58,27 @@ for (const part of parts) {
 
 function seconds(milliseconds) { return (milliseconds / 1000).toFixed(3); }
 function delta(milliseconds) { return `${milliseconds > 0 ? "+" : ""}${seconds(milliseconds)}s`; }
+
+function qrMarkup(url) {
+  const qr = qrcode(0, "M");
+  qr.addData(url.href);
+  qr.make();
+  return qr.createSvgTag({ cellSize: 4, margin: 16, scalable: true });
+}
+
+function renderWall(records, champion, challengeUrl) {
+  if (!wallMode) return;
+  $("arena-board").hidden = false;
+  $("wall-champion").textContent = `V${champion}`;
+  $("wall-qr").innerHTML = qrMarkup(challengeUrl);
+  $("challenge-tree").replaceChildren();
+  for (const record of records) {
+    const car = add($("challenge-tree"), "div", `V${record.version}`, "tree-car");
+    if (record.beatParent) car.classList.add("won");
+    if (record.version === champion) car.classList.add("champion");
+    add(car, "small", record.version === 0n ? "初代 · 13.950s" : `← V${record.parent} · ${seconds(record.timeMs)}s`);
+  }
+}
 
 function timeText(target, ms) {
   const units = document.createElement("span");
@@ -151,9 +173,9 @@ function start() {
   if (run || publishing) return;
   cancelAnimationFrame(liftFrame);
   run = { build: { ...loadout, boost: 0 }, reference: score(reference), startedAt: performance.now(), flashUntil: 0 };
-  $("panel-title").textContent = "试跑中";
-  $("scene-label").textContent = "LIVE · 试跑";
-  $("scene").setAttribute("aria-label", "紫色试跑车与灰色参考车同屏比赛");
+  $("panel-title").textContent = "擂台赛";
+  $("scene-label").textContent = "LIVE · 挑战中";
+  $("scene").setAttribute("aria-label", "紫色挑战车与灰色擂主车同屏比赛");
   $("parts").hidden = true;
   $("budget").hidden = true;
   $("run").hidden = true;
@@ -184,7 +206,7 @@ function finish(build, lap) {
   result = { build, version: null };
   run = null;
   const diff = lap.ms - against.ms;
-  $("panel-title").textContent = "试跑成绩";
+  $("panel-title").textContent = diff < 0 ? "挑战成功" : "挑战失败";
   $("scene-label").textContent = "FINISH · 完赛";
   $("race").hidden = true;
   $("boost").hidden = true;
@@ -193,9 +215,9 @@ function finish(build, lap) {
   $("share").hidden = false;
   $("status").textContent = "";
   $("splits").replaceChildren();
-  $("verdict").textContent = diff === 0 ? "与参考车打平" :
-    `${diff < 0 ? "快了" : "慢了"} ${seconds(Math.abs(diff))} 秒`;
-  $("verdict").classList.toggle("slower", diff > 0);
+  $("verdict").textContent = diff === 0 ? "打平也不能夺擂" :
+    `${diff < 0 ? "跑赢擂主" : "未能夺擂"} · ${diff < 0 ? "快" : "慢"} ${seconds(Math.abs(diff))} 秒`;
+  $("verdict").classList.toggle("slower", diff >= 0);
   timeText($("result-time"), lap.ms);
   lap.splits.forEach((ms, i) => {
     const change = ms - against.splits[i];
@@ -213,10 +235,7 @@ function share(build, version) {
     url.searchParams.set("v", "1");
     url.searchParams.set("build", key(build));
   }
-  const qr = qrcode(0, "M");
-  qr.addData(url.href);
-  qr.make();
-  $("qr").innerHTML = qr.createSvgTag({ cellSize: 4, margin: 16, scalable: true });
+  $("qr").innerHTML = qrMarkup(url);
   $("share-link").value = url.href;
   $("share-status").textContent = "";
   $("share-dialog").showModal();
@@ -232,7 +251,7 @@ function versionLink(version) {
 function updatePublish() {
   const changed = result && key(result.build) !== key(reference);
   $("publish").disabled = publishing || !registry || (!pending && (!changed || result.version !== null));
-  $("publish").textContent = pending ? "查询确认" : "保存试跑版本";
+  $("publish").textContent = pending ? "查询确认" : "提交挑战结果";
   $("retry").disabled = publishing;
 }
 
@@ -244,22 +263,33 @@ async function loadRegistry(address, id) {
   if (!response.ok) throw Error("无法加载工坊合约配置");
   const gateway = new GarageRegistry(publicRpc, address, MONAD.id, await response.json());
   await gateway.check();
-  const record = await gateway.read(version);
+  const [record, champion, count] = await Promise.all([gateway.read(version), gateway.champion(), gateway.count()]);
   registry = gateway;
   parentVersion = record.version;
   reference = record.build;
   loadout = { ...reference, boost: 0 };
   $("mode").textContent = "MONAD TESTNET";
-  $("ghost-label").textContent = `链上 V${parentVersion}`;
-  $("chain-status").textContent = "";
+  $("ghost-label").textContent = record.version === champion ? `擂主 V${parentVersion}` : `历史车 V${parentVersion}`;
+  $("chain-status").textContent = record.version === champion ? "已载入当前擂主。" : `这是一辆历史车；当前擂主是 V${champion}。`;
   $("version-details").hidden = false;
   $("version-number").textContent = `V${parentVersion}`;
   $("version-score").textContent = `${seconds(record.timeMs)}s`;
   $("version-author").textContent = record.version === 0n ? "原装车" : record.author;
+  $("champion-version").href = versionLink(champion).href;
+  $("champion-version").textContent = `打开当前擂主 V${champion}`;
+  $("champion-version").hidden = record.version === champion;
   if (record.version > 0n) {
     $("parent-version").href = versionLink(record.parent).href;
-    $("parent-version").textContent = `查看父版本 V${record.parent}`;
+    $("parent-version").textContent = `改自 V${record.parent}`;
     $("parent-version").hidden = false;
+  }
+  $("champion-version").href = versionLink(champion).href;
+  $("champion-version").textContent = `当前擂主 V${champion}`;
+  $("champion-version").hidden = record.version === champion;
+  if (wallMode) {
+    const first = count > 24n ? count - 24n : 0n;
+    const records = await Promise.all(Array.from({ length: Number(count - first) }, (_, index) => gateway.read(first + BigInt(index))));
+    renderWall(records, champion, versionLink(champion));
   }
   garage();
 }
@@ -297,7 +327,9 @@ async function publish() {
         $("published-version").href = versionLink(confirmed.version).href;
         $("published-version").textContent = `打开 V${confirmed.version}`;
         $("published-version").hidden = false;
-        $("chain-status").textContent = `已保存 V${confirmed.version} · 来自 V${confirmed.parent} · 本机确认 ${elapsed} ms`;
+        const outcome = confirmed.promoted ? "挑战成功，成为新擂主" :
+          confirmed.beatParent ? "跑赢了这辆车，但当前擂主已变化；成绩保留" : "未跑赢，成绩保留";
+        $("chain-status").textContent = `${outcome} · V${confirmed.version} · 确认 ${elapsed} ms`;
         pending = null;
         return;
       }
@@ -349,13 +381,18 @@ window.addEventListener("keydown", (event) => {
 });
 
 garage();
-if (sharedBuild) $("ghost-label").textContent = "好友参考车";
+if (wallMode && !query.has("registry")) {
+  const challenge = new URL("garage.html", location.href);
+  challenge.searchParams.delete("wall");
+  renderWall([{ version: 0n, parent: 0n, timeMs: score(STOCK).ms, beatParent: false }], 0n, challenge);
+}
+if (sharedBuild) $("ghost-label").textContent = "好友擂主车";
 if (linkBuild && !sharedBuild) $("status").textContent = "挑战链接无效，已载入原装车。";
 if (query.has("registry")) {
   $("registry-form").closest("details").open = true;
   $("registry").value = query.get("registry");
   $("version-input").value = query.get("version") ?? "0";
-  $("chain-status").textContent = "读取已确认的蓝图…";
+  $("chain-status").textContent = "读取链上车辆…";
   $("run").disabled = true;
   loadRegistry($("registry").value, $("version-input").value)
     .catch((error) => { $("chain-status").textContent = error.message; })
