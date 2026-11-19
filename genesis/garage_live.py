@@ -287,7 +287,13 @@ def main() -> None:
             advertise = None
     share_url = f"http://{advertise}:{args.port}/garage.html" if advertise else None
     server = GarageServer((args.host, args.port), garage, share_url)
-    print(json.dumps({"ready": True, "url": share_url or f"http://127.0.0.1:{server.server_port}/garage.html", "contract": garage.contract}), flush=True)
+    player_url = share_url or f"http://127.0.0.1:{server.server_port}/garage.html"
+    print(json.dumps({
+        "ready": True,
+        "playerUrl": player_url,
+        "wallUrl": f"http://127.0.0.1:{server.server_port}/garage.html?wall=1",
+        "contract": garage.contract,
+    }), flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

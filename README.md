@@ -46,6 +46,15 @@ idempotency, the current champion, parts budget, fixed contract, zero value and
 one fixed method. It is event infrastructure, not a hostile-code sandbox and
 must not be exposed directly to the public internet.
 
+Keep the relay terminal open for the entire session. The projector may use the
+printed loopback `wallUrl`; every audience QR uses the printed LAN `playerUrl`.
+`127.0.0.1` is never a valid phone URL because it points back to the phone. If
+automatic LAN detection selects a VPN adapter, restart with the real Wi-Fi IPv4:
+
+```powershell
+.\.venv\Scripts\python.exe -m genesis.garage_live --host 0.0.0.0 --port 8040 --advertise-host 192.168.1.23
+```
+
 The public build is connected to the verified Monad Testnet registry
 `0xe1e1E8498ff909Bf1d2B8fD95ff849ec9C932c10`. Viewing and practicing are
 wallet-free; submitting a challenger uses a test wallet and test MON only.

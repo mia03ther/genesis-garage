@@ -231,10 +231,15 @@ function finish(build, lap) {
 }
 
 function share(build, version) {
-  const url = registry && version !== null ? versionLink(version) : new URL("garage.html", location.href);
+  const url = eventMode?.shareUrl
+    ? new URL(eventMode.shareUrl)
+    : registry && version !== null ? versionLink(version) : new URL("garage.html", location.href);
+  url.searchParams.delete("wall");
   if (!url.searchParams.has("registry")) {
-    url.searchParams.set("v", "1");
-    url.searchParams.set("build", key(build));
+    if (!eventMode) {
+      url.searchParams.set("v", "1");
+      url.searchParams.set("build", key(build));
+    }
   }
   $("qr").innerHTML = qrMarkup(url);
   $("share-link").value = url.href;
