@@ -1,0 +1,9 @@
+{
+  "runtimeHash": "26b91d72d8e3d0d989f7c23e17d74045e82ee488e8aa41376bea7838eba2e118",
+  "methods": {
+    "lapTime(uint8,uint8,uint8)": "cca6fe2d",
+    "nextVersion()": "0bafd60e",
+    "publish(uint256,uint8,uint8,uint8)": "e8710a90",
+    "read(uint256)": "ed2e5a97"
+  }
+}

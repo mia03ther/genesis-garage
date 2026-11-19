@@ -1,4 +1,28 @@
-# GENESIS LIVE
+# Project GENESIS
+
+## GENESIS GARAGE · 废铁工坊
+
+Take a friend's buggy, swap a part, and try to beat their lap. The garage has
+two part slots, a five-point budget, and one boost per race. A shared challenge
+opens the exact build as a ghost car for the next player.
+
+```powershell
+py -3.12 -m http.server 8022 --bind 127.0.0.1 --directory frontend
+```
+
+Open `http://127.0.0.1:8022/garage.html`. Choose a part, start a run, then tap
+the boost button or press Space on the section where you want to use it. Share
+the result to make it someone else's starting car. For a phone on a different
+device, use a reachable deployment URL or serve `frontend` on a trusted LAN and
+open the laptop's LAN address before generating the QR.
+
+The optional Monad Testnet registry recomputes the simulated lap from the
+submitted parts and boost section. Each published version records the submitting
+address and parent version. The browser accepts the expected registry bytecode,
+reads finalized records, and opens older builds as playable ghosts. See the
+[Garage demo and verification guide](docs/GARAGE_DEMO.md).
+
+## GENESIS LIVE · CITY ZERO
 
 > **The crowd is the controller. The contract is the game engine.**
 
