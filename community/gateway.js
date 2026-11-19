@@ -2,6 +2,7 @@ import { sha256Hex } from "../engine.js";
 export const MONAD = {
   id: "0x279f",
   rpc: "https://testnet-rpc.monad.xyz",
+  ws: "wss://testnet-rpc.monad.xyz",
   explorer: "https://testnet.monadexplorer.com",
 };
 export const PUBLIC_APP =

@@ -15,6 +15,7 @@ import {
   publicBatchRpc,
   words,
 } from "./gateway.js";
+import { MonadRoomStream } from "./stream.js";
 
 const encodedWords = (values) =>
   "0x" +
@@ -237,4 +238,141 @@ test("public batch RPC matches responses by id and rejects omissions", async () 
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("Monad room stream validates, deduplicates and reconnects", async () => {
+  class FakeWebSocket {
+    static instances = [];
+
+    constructor(url) {
+      this.url = url;
+      this.listeners = new Map();
+      this.sent = [];
+      this.closed = false;
+      FakeWebSocket.instances.push(this);
+    }
+
+    addEventListener(type, listener) {
+      const listeners = this.listeners.get(type) ?? [];
+      listeners.push(listener);
+      this.listeners.set(type, listeners);
+    }
+
+    send(payload) {
+      this.sent.push(payload);
+    }
+
+    close() {
+      if (this.closed) return;
+      this.closed = true;
+      this.emit("close", {});
+    }
+
+    emit(type, event) {
+      for (const listener of this.listeners.get(type) ?? []) listener(event);
+    }
+  }
+
+  const changes = [],
+    room = "0x1111111111111111111111111111111111111111",
+    transactionHash = "0x" + "ab".repeat(32),
+    stream = new MonadRoomStream(
+      "wss://testnet-rpc.monad.xyz",
+      room,
+      (change) => changes.push(change),
+      {
+        WebSocketClass: FakeWebSocket,
+        reconnectBaseMs: 1,
+        reconnectMaxMs: 2,
+      },
+    ),
+    flush = (milliseconds = 0) =>
+      new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+  stream.start();
+  const first = FakeWebSocket.instances[0];
+  first.emit("open", {});
+  assert.deepEqual(JSON.parse(first.sent[0]), {
+    jsonrpc: "2.0",
+    id: 1,
+    method: "eth_subscribe",
+    params: ["monadLogs", { address: room }],
+  });
+  first.emit("message", {
+    data: JSON.stringify({ jsonrpc: "2.0", id: 1, result: "subscription-1" }),
+  });
+  await flush();
+  assert.deepEqual(changes, [{ type: "connected", reconnected: false }]);
+
+  first.emit("message", {
+    data: JSON.stringify({
+      jsonrpc: "2.0",
+      method: "eth_subscription",
+      params: {
+        subscription: "subscription-1",
+        result: {
+          blockId: "proposal-1",
+          commitState: "Proposed",
+          log: {
+            address: room,
+            transactionHash,
+            blockHash: "0x" + "cd".repeat(32),
+            removed: false,
+          },
+        },
+      },
+    }),
+  });
+  await flush();
+  assert.equal(changes.length, 2);
+  assert.equal(changes[1].type, "log");
+  assert.equal(changes[1].commitState, "proposed");
+  assert.equal(changes[1].transactionHash, transactionHash);
+
+  for (const result of [
+    {
+      address: room,
+      transactionHash,
+      commitState: "Voted",
+      removed: false,
+    },
+    {
+      address: "0x2222222222222222222222222222222222222222",
+      transactionHash: "0x" + "ef".repeat(32),
+      commitState: "Proposed",
+      removed: false,
+    },
+    {
+      address: 123,
+      transactionHash: "0x" + "12".repeat(32),
+      commitState: "Proposed",
+      removed: false,
+    },
+    { malformed: true },
+  ])
+    first.emit("message", {
+      data: JSON.stringify({
+        jsonrpc: "2.0",
+        method: "eth_subscription",
+        params: { subscription: "subscription-1", result },
+      }),
+    });
+  first.emit("message", { data: "null" });
+  await flush();
+  assert.equal(changes.length, 2);
+
+  first.emit("close", {});
+  await flush(5);
+  assert.equal(FakeWebSocket.instances.length, 2);
+  const second = FakeWebSocket.instances[1];
+  second.emit("open", {});
+  second.emit("message", {
+    data: JSON.stringify({ jsonrpc: "2.0", id: 1, result: "subscription-2" }),
+  });
+  await flush();
+  assert.deepEqual(changes.at(-1), { type: "connected", reconnected: true });
+
+  stream.stop();
+  await flush(5);
+  assert.equal(FakeWebSocket.instances.length, 2);
 });

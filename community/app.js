@@ -17,6 +17,7 @@ import {
   publicBatchRpc,
   localPost,
 } from "./gateway.js";
+import { MonadRoomStream } from "./stream.js";
 import { mount } from "../sandbox/scene.js";
 import qrcode from "../vendor/qrcode.mjs";
 
@@ -42,6 +43,9 @@ let mode = "practice",
   pending = null,
   polling = false,
   timer = null,
+  roomStream = null,
+  streamRefreshTimer = null,
+  streamRefreshPending = false,
   lastRevision = -1,
   lastBlock = null,
   feed = [],
@@ -466,6 +470,30 @@ function loop() {
   clearInterval(timer);
   timer = setInterval(poll, 5000 + Math.floor(Math.random() * 2000));
 }
+function queueStreamRefresh() {
+  streamRefreshPending = true;
+  if (streamRefreshTimer !== null) return;
+  streamRefreshTimer = setTimeout(async () => {
+    streamRefreshTimer = null;
+    if (!streamRefreshPending) return;
+    if (polling) {
+      queueStreamRefresh();
+      return;
+    }
+    streamRefreshPending = false;
+    await poll();
+    if (streamRefreshPending) queueStreamRefresh();
+  }, 100);
+}
+function stopRoomStream() {
+  roomStream?.stop();
+  roomStream = null;
+  streamRefreshPending = false;
+  if (streamRefreshTimer !== null) {
+    clearTimeout(streamRefreshTimer);
+    streamRefreshTimer = null;
+  }
+}
 async function join() {
   if (snapshot.phase === 3)
     throw Error("Mission timed out. Wait for the host to reset CITY ZERO.");
@@ -627,6 +655,7 @@ async function openMonad(address) {
     publicBatchRpc,
   );
   await g.check();
+  stopRoomStream();
   gateway = g;
   mode = "monad";
   actor = "";
@@ -646,6 +675,8 @@ async function openMonad(address) {
   busy = !!pending;
   await poll();
   loop();
+  roomStream = new MonadRoomStream(MONAD.ws, address, queueStreamRefresh);
+  roomStream.start();
   invitations();
   $("room-dialog").close();
 }
@@ -985,6 +1016,7 @@ window.ethereum?.on?.("chainChanged", () => {
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) poll();
 });
+window.addEventListener("beforeunload", stopRoomStream);
 async function boot() {
   try {
     try {
