@@ -14,6 +14,7 @@ import {
   MONAD,
   PUBLIC_APP,
   publicRpc,
+  publicBatchRpc,
   localPost,
 } from "./gateway.js";
 import { mount } from "../sandbox/scene.js";
@@ -623,6 +624,7 @@ async function openMonad(address) {
     address,
     MONAD.id,
     build.runtimeHash,
+    publicBatchRpc,
   );
   await g.check();
   gateway = g;

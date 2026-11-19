@@ -40,11 +40,12 @@ function integer(n) {
   return Number(n);
 }
 export class CommunityGateway {
-  constructor(request, contract, chainId, expectedHash) {
+  constructor(request, contract, chainId, expectedHash, batchRequest = null) {
     this.request = request;
     this.contract = contract;
     this.chainId = chainId;
     this.expectedHash = expectedHash;
+    this.batchRequest = batchRequest;
   }
   async check() {
     if (!/^0x[0-9a-f]{40}$/i.test(this.contract))
@@ -62,19 +63,34 @@ export class CommunityGateway {
   }
   async read(actor = "") {
     const block = await this.request("eth_blockNumber", []),
-      call = (data) =>
-        this.request("eth_call", [{ to: this.contract, data }, block]);
-    const [raw, revision, participants, status, round, balance] =
-      await Promise.all([
+      call = (data) => ["eth_call", [{ to: this.contract, data }, block]],
+      calls = [
         call("0x7cd3229a"),
         call("0x7cc96380"),
         call("0x6c4470fb"),
         call("0x200d2ed2"),
         call("0xe0ba8cea"),
-        actor
-          ? call("0x3e5beab9" + actor.slice(2).padStart(64, "0"))
-          : Promise.resolve(null),
-      ]);
+        ...(actor
+          ? [call("0x3e5beab9" + actor.slice(2).padStart(64, "0"))]
+          : []),
+      ];
+    let results;
+    if (this.batchRequest) {
+      try {
+        results = await this.batchRequest(
+          calls.map(([method, params]) => ({ method, params })),
+        );
+        if (!Array.isArray(results) || results.length !== calls.length)
+          throw Error("Incomplete batch response");
+      } catch {
+        results = null;
+      }
+    }
+    results ??= await Promise.all(
+      calls.map(([method, params]) => this.request(method, params)),
+    );
+    const [raw, revision, participants, status, round] = results,
+      balance = actor ? results[5] : null;
     const roundWords = words(round, 3);
     if (roundWords[0] > 3n) throw Error("Invalid mission state");
     const b = words(raw, 243),
@@ -177,6 +193,39 @@ export async function publicRpc(method, params) {
   const data = await r.json();
   if (data.error) throw Error(data.error.message);
   return data.result;
+}
+export async function publicBatchRpc(calls) {
+  if (!Array.isArray(calls) || !calls.length)
+    throw Error("Batch request must contain at least one call");
+  const requests = calls.map(({ method, params }, index) => ({
+    jsonrpc: "2.0",
+    id: index + 1,
+    method,
+    params,
+  }));
+  const r = await fetch(MONAD.rpc, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(requests),
+    signal: AbortSignal.timeout(12000),
+  });
+  if (!r.ok) throw Error("Testnet batch read failed; using compatibility mode");
+  const data = await r.json();
+  if (!Array.isArray(data)) throw Error("Testnet rejected the batch request");
+  const expected = new Set(requests.map(({ id }) => id)),
+    responses = new Map();
+  for (const item of data) {
+    if (!item || !expected.has(item.id) || responses.has(item.id))
+      throw Error("Unexpected testnet batch response");
+    responses.set(item.id, item);
+  }
+  return requests.map(({ id }) => {
+    const item = responses.get(id);
+    if (!item) throw Error("Testnet batch response omitted a call");
+    if (item.error) throw Error(item.error.message ?? "Testnet batch call failed");
+    if (!("result" in item)) throw Error("Testnet batch response omitted a result");
+    return item.result;
+  });
 }
 export async function localPost(path, body, id, instance) {
   const r = await fetch(path, {

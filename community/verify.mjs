@@ -9,7 +9,29 @@ import {
   cellFor,
   nextContribution,
 } from "./domain.js";
-import { encodeAction, words } from "./gateway.js";
+import {
+  CommunityGateway,
+  encodeAction,
+  publicBatchRpc,
+  words,
+} from "./gateway.js";
+
+const encodedWords = (values) =>
+  "0x" +
+  values
+    .map((value) => BigInt(value).toString(16).padStart(64, "0"))
+    .join("");
+
+function communityReadResponse(params) {
+  const selector = params[0].data.slice(0, 10);
+  if (selector === "0x7cd3229a") return encodedWords(Array(243).fill(0));
+  if (selector === "0x7cc96380") return encodedWords([7]);
+  if (selector === "0x6c4470fb") return encodedWords([3]);
+  if (selector === "0x200d2ed2") return encodedWords(Array(87).fill(0));
+  if (selector === "0xe0ba8cea") return encodedWords([1, 123, 100]);
+  if (selector === "0x3e5beab9") return encodedWords([9]);
+  throw Error(`Unexpected selector ${selector}`);
+}
 test("three roles restore the island; removing the source changes the actual goal", () => {
   const w = new Practice();
   for (const [actor, cell, kind] of [
@@ -111,4 +133,108 @@ test("crowd crews produce deterministic one-tap contributions", () => {
   }
   assert.equal(world.snapshot().restored, true);
   assert.equal(CREWS.every((crew) => nextContribution(world.snapshot(), crew.id) === null), true);
+});
+
+test("community reads batch six calls at one snapshot block", async () => {
+  const requests = [],
+    batches = [],
+    request = async (method, params) => {
+      requests.push({ method, params });
+      if (method === "eth_blockNumber") return "0xabc";
+      throw Error(`Unexpected individual ${method}`);
+    },
+    batch = async (calls) => {
+      batches.push(calls);
+      return calls.map(({ params }) => communityReadResponse(params));
+    },
+    gateway = new CommunityGateway(
+      request,
+      "0x1111111111111111111111111111111111111111",
+      "0x279f",
+      "0".repeat(64),
+      batch,
+    ),
+    snapshot = await gateway.read(
+      "0x2222222222222222222222222222222222222222",
+    );
+
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].method, "eth_blockNumber");
+  assert.equal(batches.length, 1);
+  assert.equal(batches[0].length, 6);
+  assert.equal(batches[0].every(({ method }) => method === "eth_call"), true);
+  assert.equal(batches[0].every(({ params }) => params[1] === "0xabc"), true);
+  assert.equal(snapshot.block, "0xabc");
+  assert.equal(snapshot.revision, 7);
+  assert.equal(snapshot.participants, 3);
+  assert.equal(snapshot.balance, 9);
+  assert.equal(snapshot.phase, 1);
+});
+
+test(
+  "community reads preserve the original path when batch is unavailable",
+  async () => {
+    const requests = [],
+      request = async (method, params) => {
+        requests.push({ method, params });
+        if (method === "eth_blockNumber") return "0xdef";
+        if (method === "eth_call") return communityReadResponse(params);
+        throw Error(`Unexpected method ${method}`);
+      },
+      gateway = new CommunityGateway(
+        request,
+        "0x1111111111111111111111111111111111111111",
+        "0x279f",
+        "0".repeat(64),
+        async () => {
+          throw Error("Batch unsupported");
+        },
+      ),
+      snapshot = await gateway.read(
+        "0x2222222222222222222222222222222222222222",
+      ),
+      calls = requests.filter(({ method }) => method === "eth_call");
+
+    assert.equal(requests.length, 7);
+    assert.equal(calls.length, 6);
+    assert.equal(calls.every(({ params }) => params[1] === "0xdef"), true);
+    assert.equal(snapshot.revision, 7);
+    assert.equal(snapshot.balance, 9);
+  },
+);
+
+test("public batch RPC matches responses by id and rejects omissions", async () => {
+  const originalFetch = globalThis.fetch,
+    calls = [
+      { method: "first", params: [1] },
+      { method: "second", params: [2] },
+    ];
+  try {
+    globalThis.fetch = async (_url, options) => {
+      const requests = JSON.parse(options.body);
+      return {
+        ok: true,
+        async json() {
+          return [
+            { jsonrpc: "2.0", id: requests[1].id, result: "second-result" },
+            { jsonrpc: "2.0", id: requests[0].id, result: "first-result" },
+          ];
+        },
+      };
+    };
+    assert.deepEqual(await publicBatchRpc(calls), [
+      "first-result",
+      "second-result",
+    ]);
+
+    globalThis.fetch = async () => ({
+      ok: true,
+      async json() {
+        return [{ jsonrpc: "2.0", id: 1, result: "only-result" }];
+      },
+    });
+    await assert.rejects(publicBatchRpc(calls), /omitted a call/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
