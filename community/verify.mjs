@@ -333,6 +333,12 @@ test("Monad room stream validates, deduplicates and reconnects", async () => {
     {
       address: room,
       transactionHash,
+      commitState: "Proposed",
+      removed: false,
+    },
+    {
+      address: room,
+      transactionHash,
       commitState: "Voted",
       removed: false,
     },
@@ -359,7 +365,10 @@ test("Monad room stream validates, deduplicates and reconnects", async () => {
     });
   first.emit("message", { data: "null" });
   await flush();
-  assert.equal(changes.length, 2);
+  assert.equal(changes.length, 3);
+  assert.equal(changes[2].type, "log");
+  assert.equal(changes[2].commitState, "voted");
+  assert.equal(changes[2].transactionHash, transactionHash);
 
   first.emit("close", {});
   await flush(5);

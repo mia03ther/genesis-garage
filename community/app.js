@@ -1107,6 +1107,7 @@ async function boot() {
 window.addEventListener(
   "pagehide",
   () => {
+    stopRoomStream();
     clearInterval(timer);
     clearInterval(clockTimer);
     clearTimeout(receiptTimer);

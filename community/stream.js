@@ -61,10 +61,10 @@ export class MonadRoomStream {
     this.connectTimer = null;
   }
 
-  remember(transactionHash) {
-    const hash = transactionHash.toLowerCase();
-    if (this.seenTransactions.has(hash)) return false;
-    this.seenTransactions.add(hash);
+  remember(transactionHash, commitState) {
+    const key = `${transactionHash.toLowerCase()}:${commitState}`;
+    if (this.seenTransactions.has(key)) return false;
+    this.seenTransactions.add(key);
     if (this.seenTransactions.size > 256)
       this.seenTransactions.delete(this.seenTransactions.values().next().value);
     return true;
@@ -110,7 +110,7 @@ export class MonadRoomStream {
       !COMMIT_STATES.has(commitState) ||
       typeof transactionHash !== "string" ||
       !/^0x[0-9a-f]{64}$/i.test(transactionHash) ||
-      !this.remember(transactionHash)
+      !this.remember(transactionHash, commitState)
     )
       return;
     this.notify({
