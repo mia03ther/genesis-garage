@@ -83,6 +83,19 @@ rehearsal.
   part swap, race, boost, winning result, and handoff QR completed with no
   captured console warnings or errors.
 
-No public Monad Testnet deployment or physical iPhone rehearsal was executed in
-this validation. The wall's Testnet history therefore remains a tested local
-implementation, not a claim of production network readiness.
+No physical iPhone rehearsal was executed in this browser validation. The
+subsequent deployment check below verifies Testnet bytecode and reads, but not
+yet a wallet-signed player challenge or two-phone relay.
+
+## Monad Testnet deployment · 2026-11-19
+
+- Registry: `0xe1e1E8498ff909Bf1d2B8fD95ff849ec9C932c10`
+- Deployment transaction: `0x65b7cd13dcc35ce2b77af07471b8bd4d9defb35c43dd3a31f816b5796acfd232`
+- Deployment receipt: status `1`, block `81037635`.
+- Runtime SHA-256: `1c7b940a4e531fd14d7b57ff56d9fce4f279473bafdaebdbb70f82446d5bd89b`,
+  equal to the frontend's pinned artifact.
+- Initial state read from Testnet: champion `V0`, next car `V1`, stock lap
+  `13.950s`.
+
+The deployment and read path are verified. A wallet-signed player challenge and
+physical two-phone relay still require a separate rehearsal before the event.

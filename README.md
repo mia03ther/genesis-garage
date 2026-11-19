@@ -24,6 +24,10 @@ Use `http://127.0.0.1:8022/garage.html?wall=1` on the projector. The wall view
 adds the current champion, recent challenge tree, and a phone entry QR. With a
 configured Testnet registry, the QR always points at the current onchain champion.
 
+The public build is connected to the verified Monad Testnet registry
+`0xe1e1E8498ff909Bf1d2B8fD95ff849ec9C932c10`. Viewing and practicing are
+wallet-free; submitting a challenger uses a test wallet and test MON only.
+
 The optional Monad Testnet registry recomputes the simulated lap from the
 submitted parts and boost section. It decides whether the car beat its parent
 and whether it may replace the current champion. Every numbered car records its
