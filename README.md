@@ -24,6 +24,28 @@ Use `http://127.0.0.1:8022/garage.html?wall=1` on the projector. The wall view
 adds the current champion, recent challenge tree, and a phone entry QR. With a
 configured Testnet registry, the QR always points at the current onchain champion.
 
+### Walletless event mode
+
+For the actual room, run the bounded relay instead of asking every phone to
+install a wallet. It prompts once for the event operator's encrypted Foundry
+keystore, serves the same frontend, and sponsors only validated calls to the
+pinned Garage contract:
+
+```powershell
+$env:Path = "$env:USERPROFILE\.foundry\bin;$env:Path"
+Set-Location D:\Github\project-genesis
+.\.venv\Scripts\python.exe -m genesis.garage_live `
+  --host 0.0.0.0 --port 8040 --advertise-host 192.168.1.23
+```
+
+Open `http://127.0.0.1:8040/garage.html?wall=1` on the projector. Phones scan
+the displayed LAN URL, play without a wallet, and submit through the operator's
+low-balance Testnet-only account. Replace `192.168.1.23` with the laptop's LAN
+IPv4 address. The relay enforces same-origin requests, sessions, rate limits,
+idempotency, the current champion, parts budget, fixed contract, zero value and
+one fixed method. It is event infrastructure, not a hostile-code sandbox and
+must not be exposed directly to the public internet.
+
 The public build is connected to the verified Monad Testnet registry
 `0xe1e1E8498ff909Bf1d2B8fD95ff849ec9C932c10`. Viewing and practicing are
 wallet-free; submitting a challenger uses a test wallet and test MON only.
@@ -159,10 +181,10 @@ node frontend/community/e2e.mjs
 
 Recorded results for this relaunch:
 
-- Python: **638 passed**
+- Python: **644 passed**
 - Browser-domain Node tests: **29 passed**
 - Solidity: **15 passed**
-- Strict mypy: **27 source files clean**
+- Strict mypy: **28 source files clean**
 - Three-session HTTP → gateway → Anvil experiment: passed, including shared state, ownership rejection, idempotency, power loss/recovery, timed completion, host-only reset, and stale-round rejection
 
 Evidence: [machine-readable E2E report](docs/examples/relaunch-e2e.report.json) · [executed checks](docs/validation/RELAUNCH_CHECKS.md) · [deployment guide](DEPLOY.md)

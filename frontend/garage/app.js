@@ -27,6 +27,7 @@ let loadout = { ...reference, boost: 0 };
 let run = null;
 let result = null;
 let registry = null;
+let eventMode = null;
 let parentVersion = 0n;
 let pending = null;
 let publishing = false;
@@ -250,8 +251,9 @@ function versionLink(version) {
 
 function updatePublish() {
   const changed = result && key(result.build) !== key(reference);
+  $("publish").hidden = !registry || (!result && !pending);
   $("publish").disabled = publishing || !registry || (!pending && (!changed || result.version !== null));
-  $("publish").textContent = pending ? "查询确认" : "提交挑战结果";
+  $("publish").textContent = pending ? "查询链上确认" : eventMode ? "免钱包提交到 Monad" : "用测试钱包提交";
   $("retry").disabled = publishing;
 }
 
@@ -312,26 +314,82 @@ async function loadDefaultRegistry() {
   }
 }
 
+async function eventRequest(path, options = {}) {
+  const response = await fetch(path, options);
+  let body = {};
+  try { body = await response.json(); } catch { /* a missing relay falls back to wallet mode */ }
+  if (!response.ok) throw Error(body.error || `现场中继返回 ${response.status}`);
+  return body;
+}
+
+async function loadEventMode() {
+  let info;
+  try {
+    const response = await fetch("/api/garage/info", { cache: "no-store" });
+    if (!response.ok) return false;
+    info = await response.json();
+  } catch {
+    return false;
+  }
+  if (info.mode !== "monad-event-relay" || info.chainId !== MONAD.id || !ADDRESS.test(info.contract) ||
+      !ADDRESS.test(info.relayer) || typeof info.instance !== "string") return false;
+  await eventRequest("/api/garage/join", {
+    method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: "{}",
+  });
+  eventMode = info;
+  await loadRegistry(info.contract, "champion");
+  $("mode").textContent = "MONAD EVENT · 免钱包";
+  $("chain-status").textContent = "活动方赞助测试网 Gas；合约判定擂主。";
+  if (wallMode && info.shareUrl) {
+    const challenge = new URL(info.shareUrl);
+    challenge.searchParams.delete("wall");
+    $("wall-qr").innerHTML = qrMarkup(challenge);
+  }
+  return true;
+}
+
+async function submitEventChallenge(build, requestId) {
+  const options = {
+    method: "POST", credentials: "same-origin",
+    headers: { "Content-Type": "application/json", "Idempotency-Key": requestId, "X-Garage-Instance": eventMode.instance },
+    body: JSON.stringify({ parent: Number(parentVersion), motor: build.motor, tires: build.tires, boost: build.boost }),
+  };
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try { return await eventRequest("/api/garage/challenge", options); }
+    catch (error) {
+      if (!(error instanceof TypeError) || attempt === 1) throw error;
+    }
+  }
+}
+
 async function publish() {
   if (publishing || !registry || (!pending && !result)) return;
   publishing = true;
   updatePublish();
   try {
     if (!pending) {
-      const wallet = window.ethereum;
-      if (!wallet?.request) throw Error("在带测试钱包的浏览器中打开此页面");
-      $("chain-status").textContent = "请在钱包中确认测试网账号和交易。";
-      const accounts = await wallet.request({ method: "eth_requestAccounts" });
-      if (await wallet.request({ method: "eth_chainId" }) !== MONAD.id) {
-        await wallet.request({ method: "wallet_switchEthereumChain", params: [{ chainId: MONAD.id }] });
-      }
-      if (await wallet.request({ method: "eth_chainId" }) !== MONAD.id) throw Error("请切换到 Monad Testnet");
-      const [from] = await wallet.request({ method: "eth_accounts" });
-      if (!accounts.length || !from) throw Error("未连接测试钱包账号");
       const build = result.build;
-      const tx = registry.transaction(from, parentVersion, build);
-      const hash = await wallet.request({ method: "eth_sendTransaction", params: [tx] });
-      if (!/^0x[0-9a-f]{64}$/i.test(hash)) throw Error("钱包没有返回有效交易哈希");
+      let hash, from;
+      if (eventMode) {
+        $("chain-status").textContent = "活动方正在赞助本次挑战…";
+        const submitted = await submitEventChallenge(build, crypto.randomUUID());
+        hash = submitted.tx;
+        from = eventMode.relayer;
+      } else {
+        const wallet = window.ethereum;
+        if (!wallet?.request) throw Error("请使用现场二维码免钱包参与，或在测试钱包浏览器中打开");
+        $("chain-status").textContent = "请在钱包中确认测试网账号和交易。";
+        const accounts = await wallet.request({ method: "eth_requestAccounts" });
+        if (await wallet.request({ method: "eth_chainId" }) !== MONAD.id) {
+          await wallet.request({ method: "wallet_switchEthereumChain", params: [{ chainId: MONAD.id }] });
+        }
+        if (await wallet.request({ method: "eth_chainId" }) !== MONAD.id) throw Error("请切换到 Monad Testnet");
+        [from] = await wallet.request({ method: "eth_accounts" });
+        if (!accounts.length || !from) throw Error("未连接测试钱包账号");
+        const tx = registry.transaction(from, parentVersion, build);
+        hash = await wallet.request({ method: "eth_sendTransaction", params: [tx] });
+      }
+      if (!/^0x[0-9a-f]{64}$/i.test(hash)) throw Error("没有返回有效交易哈希");
       pending = { hash, from, parent: parentVersion, build, broadcastAt: performance.now(), result };
       $("transaction").href = `${MONAD.explorer}/tx/${hash}`;
       $("transaction").hidden = false;
@@ -415,4 +473,7 @@ if (query.has("registry")) {
   loadRegistry($("registry").value, $("version-input").value)
     .catch((error) => { $("chain-status").textContent = error.message; })
     .finally(() => { $("run").disabled = false; });
-} else loadDefaultRegistry().catch((error) => { $("chain-status").textContent = error.message; });
+} else {
+  loadEventMode().then((loaded) => loaded || loadDefaultRegistry())
+    .catch((error) => { $("chain-status").textContent = error.message; });
+}

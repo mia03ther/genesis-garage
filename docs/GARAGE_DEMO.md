@@ -74,8 +74,8 @@ rehearsal.
 
 ## Executed validation · 2026-11-19
 
-- `pytest -q`: 638 passed.
-- strict mypy: 27 source files clean.
+- `pytest -q`: 644 passed, including six walletless relay boundary tests.
+- strict mypy: 28 source files clean.
 - all frontend Node suites: 29 passed, including the Anvil two-account flow.
 - `forge test`: 15 passed, including champion promotion, losing branches, and
   stale-fork protection.
@@ -99,3 +99,18 @@ yet a wallet-signed player challenge or two-phone relay.
 
 The deployment and read path are verified. A wallet-signed player challenge and
 physical two-phone relay still require a separate rehearsal before the event.
+
+## Walletless room mode
+
+`python -m genesis.garage_live` turns the event laptop into a same-origin static
+server and tightly scoped transaction sponsor. Participants never receive the
+operator key and cannot choose calldata, destination, value, RPC method, or an
+old parent car. The service accepts only integer part choices within budget and
+only while the submitted parent is still the current champion. Network retries
+reuse the same idempotency key.
+
+This is intentionally a trusted event relay: the operator can censor a player
+and every transaction is authored by the sponsor address. The contract still
+recalculates every score and promotion. A later passkey/EIP-712 design can make
+each phone authorize its own move without requiring an installed wallet; that
+claim is not made for this implementation.
