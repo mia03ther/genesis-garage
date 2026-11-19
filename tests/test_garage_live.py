@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 from unittest.mock import patch
+import subprocess
 
 import pytest
 
@@ -25,6 +26,18 @@ def test_rpc_identifies_the_client_to_monad() -> None:
         assert garage.rpc("eth_chainId", []) == "0x279f"
     request = opened.call_args.args[0]
     assert request.get_header("User-agent") == "genesis-harness/1.0"
+
+
+def test_keystore_password_uses_stdin_not_arguments_or_environment() -> None:
+    garage = EventGarage("0x" + "2" * 40, password="test-only-secret", cast_executable="cast")
+    completed = subprocess.CompletedProcess(["cast"], 0, stdout="ok", stderr="")
+    with patch("genesis.garage_live.subprocess.run", return_value=completed) as run:
+        garage._cast("wallet", "address", "--account", "relay")
+    command = run.call_args.args[0]
+    options = run.call_args.kwargs
+    assert "test-only-secret" not in command
+    assert options["input"] == "test-only-secret\n"
+    assert "env" not in options
 
 
 class RecordingGarage(EventGarage):

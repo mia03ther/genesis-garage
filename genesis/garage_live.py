@@ -12,7 +12,6 @@ import getpass
 from http.cookies import SimpleCookie
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
-import os
 from os import PathLike
 from pathlib import Path
 import secrets
@@ -90,11 +89,10 @@ class EventGarage:
         self.relayer_address = address
 
     def _cast(self, *arguments: str, timeout: int = 120) -> subprocess.CompletedProcess[str]:
-        environment = os.environ.copy()
-        environment["ETH_PASSWORD"] = self.password
         completed = subprocess.run(
             [self.cast, *arguments], capture_output=True, text=True,
-            timeout=timeout, env=environment, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            input=self.password + "\n", timeout=timeout,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
         if completed.returncode:
             detail = (completed.stderr or completed.stdout or "cast failed").strip()

@@ -181,7 +181,7 @@ node frontend/community/e2e.mjs
 
 Recorded results for this relaunch:
 
-- Python: **646 passed**
+- Python: **647 passed**
 - Browser-domain Node tests: **29 passed**
 - Solidity: **15 passed**
 - Strict mypy: **28 source files clean**
