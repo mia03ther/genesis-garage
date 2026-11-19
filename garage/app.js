@@ -257,12 +257,12 @@ function updatePublish() {
 
 async function loadRegistry(address, id) {
   // A link can choose an address and version, but the page always pins the network and bytecode.
-  const version = versionId(id);
   if (!ADDRESS.test(address)) throw Error("无效工坊合约地址");
   const response = await fetch(new URL("./build.json", import.meta.url));
   if (!response.ok) throw Error("无法加载工坊合约配置");
   const gateway = new GarageRegistry(publicRpc, address, MONAD.id, await response.json());
   await gateway.check();
+  const version = id === "champion" ? await gateway.champion() : versionId(id);
   const [record, champion, count] = await Promise.all([gateway.read(version), gateway.champion(), gateway.count()]);
   registry = gateway;
   parentVersion = record.version;
@@ -292,6 +292,24 @@ async function loadRegistry(address, id) {
     renderWall(records, champion, versionLink(champion));
   }
   garage();
+}
+
+async function loadDefaultRegistry() {
+  const response = await fetch(new URL("./deployment.json", import.meta.url), { cache: "no-store" });
+  if (!response.ok) return;
+  const deployment = await response.json();
+  if (deployment.chainId !== MONAD.id || !deployment.registry) return;
+  if (!ADDRESS.test(deployment.registry)) throw Error("默认擂台地址无效");
+  $("registry").value = deployment.registry;
+  $("registry-form").closest("details").open = true;
+  $("chain-status").textContent = "正在进入 Monad 擂台…";
+  $("run").disabled = true;
+  try {
+    await loadRegistry(deployment.registry, "champion");
+    $("version-input").value = parentVersion.toString();
+  } finally {
+    $("run").disabled = false;
+  }
 }
 
 async function publish() {
@@ -397,4 +415,4 @@ if (query.has("registry")) {
   loadRegistry($("registry").value, $("version-input").value)
     .catch((error) => { $("chain-status").textContent = error.message; })
     .finally(() => { $("run").disabled = false; });
-}
+} else loadDefaultRegistry().catch((error) => { $("chain-status").textContent = error.message; });
