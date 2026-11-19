@@ -51,6 +51,11 @@ starts when the wallet returns a transaction hash and ends when this client
 verifies the finalized version. To test the relay on stage, separately time
 how long it takes the second phone to load the version from its QR.
 
+For the event build, put the verified contract address in
+`frontend/garage/deployment.json`. The normal Garage and `?wall=1` URLs then
+load the current champion automatically; the address form remains available as
+a recovery tool, not a required onboarding step.
+
 ## Checks
 
 ```powershell

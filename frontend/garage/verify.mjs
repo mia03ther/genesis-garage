@@ -97,7 +97,7 @@ test("Anvil validates scores and promotes only a winning child of the current ch
   assert.deepEqual((await receiver.read(0)).build, STOCK);
   assert.equal(await receiver.champion(), 0n);
   await assert.rejects(new GarageRegistry(bob, receipt.contractAddress, "0x279f", artifact).check(), /网络不匹配/);
-  await assert.rejects(new GarageRegistry(bob, a, "0x7a69", artifact).check(), /不匹配/);
+  await assert.rejects(new GarageRegistry(bob, a, "0x7a69", artifact).check(), /不是兼容/);
   for (let motor = 0; motor < 3; motor++) for (let tires = 0; tires < 3; tires++) {
     for (let boost = 0; boost < 4; boost++) {
       const build = { motor, tires, boost };
