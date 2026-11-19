@@ -35,6 +35,12 @@ def test_walletless_challenge_is_scoped_current_and_idempotent() -> None:
         garage.challenge(token, "request-456", body)
 
 
+def test_join_reuses_an_existing_event_session() -> None:
+    garage = RecordingGarage()
+    token = garage.join(None)
+    assert garage.join(token) == token
+
+
 @pytest.mark.parametrize(
     "body",
     [

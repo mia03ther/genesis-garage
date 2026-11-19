@@ -17,6 +17,7 @@ from os import PathLike
 from pathlib import Path
 import secrets
 import shutil
+import socket
 import subprocess
 import threading
 import time
@@ -260,7 +261,15 @@ def main() -> None:
     password = getpass.getpass(f"Password for Testnet keystore {args.account}: ")
     garage = EventGarage(args.contract, rpc_url=args.rpc_url, account=args.account, password=password)
     garage.start()
-    share_url = f"http://{args.advertise_host}:{args.port}/garage.html" if args.advertise_host else None
+    advertise = args.advertise_host
+    if not advertise and args.host == "0.0.0.0":
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as route:
+                route.connect(("192.0.2.1", 80))
+                advertise = route.getsockname()[0]
+        except OSError:
+            advertise = None
+    share_url = f"http://{advertise}:{args.port}/garage.html" if advertise else None
     server = GarageServer((args.host, args.port), garage, share_url)
     print(json.dumps({"ready": True, "url": share_url or f"http://127.0.0.1:{server.server_port}/garage.html", "contract": garage.contract}), flush=True)
     try:
