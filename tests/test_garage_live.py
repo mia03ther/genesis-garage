@@ -1,10 +1,30 @@
 from __future__ import annotations
 
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 
 from genesis.garage_live import EventGarage
+
+
+class RpcResponse:
+    def __enter__(self) -> "RpcResponse":
+        return self
+
+    def __exit__(self, *_: Any) -> None:
+        return None
+
+    def read(self) -> bytes:
+        return b'{"jsonrpc":"2.0","id":1,"result":"0x279f"}'
+
+
+def test_rpc_identifies_the_client_to_monad() -> None:
+    garage = EventGarage("0x" + "2" * 40)
+    with patch("genesis.garage_live.urlopen", return_value=RpcResponse()) as opened:
+        assert garage.rpc("eth_chainId", []) == "0x279f"
+    request = opened.call_args.args[0]
+    assert request.get_header("User-agent") == "genesis-harness/1.0"
 
 
 class RecordingGarage(EventGarage):

@@ -74,7 +74,7 @@ rehearsal.
 
 ## Executed validation · 2026-11-19
 
-- `pytest -q`: 645 passed, including seven walletless relay boundary tests.
+- `pytest -q`: 646 passed, including eight walletless relay boundary tests.
 - strict mypy: 28 source files clean.
 - all frontend Node suites: 29 passed, including the Anvil two-account flow.
 - `forge test`: 15 passed, including champion promotion, losing branches, and

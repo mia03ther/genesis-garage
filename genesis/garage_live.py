@@ -22,7 +22,10 @@ import subprocess
 import threading
 import time
 from typing import Any, cast
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
+
+from genesis.harness.chain import HARNESS_USER_AGENT
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CONTRACT = "0xe1e1E8498ff909Bf1d2B8fD95ff849ec9C932c10"
@@ -56,9 +59,16 @@ class EventGarage:
 
     def rpc(self, method: str, params: list[Any]) -> Any:
         payload = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).encode()
-        request = Request(self.rpc_url, data=payload, headers={"Content-Type": "application/json"})
-        with urlopen(request, timeout=12) as response:
-            body = json.load(response)
+        request = Request(
+            self.rpc_url,
+            data=payload,
+            headers={"Content-Type": "application/json", "User-Agent": HARNESS_USER_AGENT},
+        )
+        try:
+            with urlopen(request, timeout=12) as response:
+                body = json.load(response)
+        except HTTPError as error:
+            raise ValueError(f"Monad RPC rejected {method}: HTTP {error.code}") from error
         if "error" in body:
             raise ValueError(str(body["error"].get("message", "Monad rejected request")))
         return body["result"]
