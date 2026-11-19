@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 from unittest.mock import patch
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -28,15 +29,24 @@ def test_rpc_identifies_the_client_to_monad() -> None:
     assert request.get_header("User-agent") == "genesis-harness/1.0"
 
 
-def test_keystore_password_uses_stdin_not_arguments_or_environment() -> None:
+def test_keystore_password_uses_short_lived_file_not_arguments_or_environment() -> None:
     garage = EventGarage("0x" + "2" * 40, password="test-only-secret", cast_executable="cast")
-    completed = subprocess.CompletedProcess(["cast"], 0, stdout="ok", stderr="")
-    with patch("genesis.garage_live.subprocess.run", return_value=completed) as run:
+    password_path = ""
+
+    def fake_run(command: list[str], **_: Any) -> subprocess.CompletedProcess[str]:
+        nonlocal password_path
+        password_path = command[command.index("--password-file") + 1]
+        with open(password_path, encoding="utf-8") as password_file:
+            assert password_file.read() == "test-only-secret"
+        return subprocess.CompletedProcess(command, 0, stdout="ok", stderr="")
+
+    with patch("genesis.garage_live.subprocess.run", side_effect=fake_run) as run:
         garage._cast("wallet", "address", "--account", "relay")
     command = run.call_args.args[0]
     options = run.call_args.kwargs
     assert "test-only-secret" not in command
-    assert options["input"] == "test-only-secret\n"
+    assert not Path(password_path).exists()
+    assert "input" not in options
     assert "env" not in options
 
 

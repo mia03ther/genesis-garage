@@ -18,6 +18,7 @@ import secrets
 import shutil
 import socket
 import subprocess
+import tempfile
 import threading
 import time
 from typing import Any, cast
@@ -89,11 +90,18 @@ class EventGarage:
         self.relayer_address = address
 
     def _cast(self, *arguments: str, timeout: int = 120) -> subprocess.CompletedProcess[str]:
-        completed = subprocess.run(
-            [self.cast, *arguments], capture_output=True, text=True,
-            input=self.password + "\n", timeout=timeout,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
+        with tempfile.TemporaryDirectory(prefix="genesis-garage-") as directory:
+            password_file = Path(directory) / "keystore-password"
+            password_file.write_text(self.password, encoding="utf-8")
+            try:
+                completed = subprocess.run(
+                    [self.cast, *arguments, "--password-file", str(password_file)],
+                    capture_output=True, text=True, timeout=timeout,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                )
+            finally:
+                if password_file.exists():
+                    password_file.write_text("\0" * len(self.password), encoding="utf-8")
         if completed.returncode:
             detail = (completed.stderr or completed.stdout or "cast failed").strip()
             raise ValueError(detail[:240])
